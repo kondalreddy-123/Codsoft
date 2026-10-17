@@ -1,1 +1,124 @@
 
+# Tic-Tac-Toe AI
+
+**Afterhours** is a polished, responsive Tic-Tac-Toe game built with HTML, CSS, and vanilla JavaScript. Play against an AI, challenge a friend on the same device, or connect to another player using a peer-to-peer offer/reply code flow.
+
+## Features
+
+- **Play against AI:** Multiple difficulty levels, including an unbeatable mode, plus custom AI settings where available.
+- **Local two-player mode:** Play against a friend on the same device.
+- **Online peer-to-peer matches:** Connect with a friend by exchanging short offer and reply codes. No application account or dedicated game server is required.
+- **Player statistics:** Track game results, rating, streaks, and match history in the browser.
+- **Sound and visual feedback:** Synthesized sound effects, animations, and interaction feedback.
+- **Progressive Web App (PWA):** Install the game on supported devices.
+- **Offline support:** A service worker caches core app assets for returning visits. The first visit requires a connection.
+- **Responsive interface:** Designed to adapt to desktop and mobile screens.
+- **Accessibility considerations:** Includes status announcements and respects reduced-motion preferences in supported effects.
+
+## Built With
+
+- HTML5
+- CSS3
+- Vanilla JavaScript
+- WebRTC for peer-to-peer multiplayer connections
+- Web Audio API for synthesized sound effects
+- Service Workers, Web App Manifest, and browser storage for PWA and local statistics
+- Google Fonts: DM Sans, JetBrains Mono, and Plus Jakarta Sans
+- Three.js (loaded remotely and used as an optional desktop visual effect)
+
+## Project Structure
+
+```text
+.
+├── index.html              # Main page and game interface
+├── style.css               # Layout, styling, and responsive design
+├── game.js                 # Core Tic-Tac-Toe rules, turns, and AI gameplay
+├── online.js               # Peer-to-peer multiplayer connection flow
+├── stats.js                # Local player profile, ratings, and game history
+├── sfx.js                  # Sound effects and interaction feedback
+├── fx.js                   # Visual effects and motion enhancements
+├── pwa.js                  # App installation prompt handling
+├── sw.js                   # Service worker and offline asset caching
+├── manifest.webmanifest    # PWA metadata and app icons
+└── icons/                  # App icon assets referenced by the manifest
+```
+
+> **Note:** The supplied source archive references an `icons/` directory. Make sure the referenced icon files are included when deploying the project.
+
+## Run Locally
+
+This is a static web project and does not require Python, Node.js, or package installation for basic gameplay.
+
+### Option 1: Open in your browser
+
+1. Download or extract the project files into one folder.
+2. Double-click `index.html` to open it in a modern browser.
+
+Core gameplay should work this way, but service workers, installation prompts, and some browser features generally require `localhost` or HTTPS.
+
+### Option 2: Use VS Code Live Server (recommended)
+
+1. Install [Visual Studio Code](https://code.visualstudio.com/).
+2. Open your project folder in VS Code.
+3. Open **Extensions**, search for **Live Server**, and install it.
+4. In the file explorer, right-click `index.html` and select **Open with Live Server**.
+5. Your browser should open the site at a local address such as `http://127.0.0.1:5500`.
+
+For PWA and service-worker testing, use `localhost` or deploy the project over HTTPS.
+
+## How to Play
+
+1. Open the game in your browser.
+2. Select a game mode or AI difficulty.
+3. Take turns placing **X** and **O** on the 3×3 board.
+4. Get three matching marks in a row, column, or diagonal to win.
+5. Reset the board to start another match.
+6. Review your statistics in the stats section.
+
+### Playing Online
+
+1. Open the online match panel.
+2. One player chooses **I'll Host** and creates an offer code.
+3. Send the offer code to the other player.
+4. The other player chooses **I'll Join**, pastes the offer, and creates a reply code.
+5. Send the reply code back to the host.
+6. The host pastes the reply and connects.
+
+The code exchange is manual. A signaling service is not included in this project, so players need another way to exchange the codes. WebRTC connectivity can also depend on browser/network conditions; some networks may prevent a direct connection.
+
+## Data and Privacy
+
+- Player profile and statistics are stored locally in the browser using `localStorage`.
+- The project does not include a user-account system or a central database.
+- Online matches use a peer-to-peer WebRTC data channel after the players exchange connection codes.
+- The optional Three.js effect and Google Fonts are loaded from external hosts, so those resources may require an internet connection.
+- Clearing browser site data may remove locally stored statistics.
+
+## Deployment
+
+Because this is a static site, it can be hosted on services such as GitHub Pages, Netlify, or Vercel.
+
+1. Upload the project files, keeping their folder structure intact.
+2. Ensure `index.html`, all JavaScript/CSS files, the web manifest, and the referenced icon assets are deployed.
+3. Enable HTTPS. HTTPS is required for service workers on deployed sites and is recommended for PWA installation.
+4. Open the deployed URL and test gameplay, statistics, installation, offline behavior, and online connections.
+
+## Troubleshooting
+
+- **The page looks unstyled:** Check that `style.css` is in the same directory as `index.html`.
+- **Game controls do not work:** Check the browser console for JavaScript errors and confirm all `.js` files were uploaded.
+- **Install button does not appear:** PWA installation depends on browser support, HTTPS/localhost, and installability requirements.
+- **Offline mode does not work on the first visit:** Open the app online once so the service worker can cache assets.
+- **Online match will not connect:** Confirm both players exchanged the correct codes and keep the page open during setup. Some network configurations may block direct peer-to-peer connectivity.
+- **Statistics disappeared:** Statistics are browser-local and can be lost if site data is cleared or a different browser/device is used.
+
+## Future Improvements
+
+- Add optional room links or a signaling server to simplify online matchmaking.
+- Add cloud-backed accounts and synchronized statistics.
+- Add automated tests for game rules and AI behavior.
+- Improve online connection diagnostics and reconnect handling.
+
+## License
+
+No license file was included in the supplied project files. 
