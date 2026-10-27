@@ -23,8 +23,8 @@ from PIL import Image, UnidentifiedImageError
 MODEL_ID = "Salesforce/blip-image-captioning-base"
 MAX_UPLOAD_MB = 8
 ALLOWED_FORMATS = {"JPEG", "PNG", "WEBP", "GIF", "BMP"}
-# Translation is OPTIONAL: none (default) | nllb | libretranslate
-TRANSLATOR = os.environ.get("CAPTION_TRANSLATOR", "none").lower()
+# Translation: nllb (default, local model) | libretranslate | none
+TRANSLATOR = os.environ.get("CAPTION_TRANSLATOR", "nllb").lower()
 NLLB_ID = os.environ.get("NLLB_MODEL", "facebook/nllb-200-distilled-600M")
 LIBRETRANSLATE_URL = os.environ.get("LIBRETRANSLATE_URL", "")      # e.g. http://127.0.0.1:5001
 LIBRETRANSLATE_KEY = os.environ.get("LIBRETRANSLATE_API_KEY", "")  # stays server-side
@@ -81,6 +81,8 @@ except Exception as exc:  # model/network/dependency problems are reported via t
     log.error("Model failed to load: %s", MODEL_ERROR)
 
 _nllb = {}  # lazy cache: tokenizer + model
+_nllb_lock = threading.Lock()   # the Rust tokenizer raises "Already borrowed" if used by 2 threads at once
+_blip_lock = threading.Lock()
 INFER_LOCK = threading.Lock()
 _cache = OrderedDict()  # (image sha1, length) -> English caption; repeat requests are instant
 _tr_cache = {}          # (english caption, language) -> (translation, note)
@@ -101,20 +103,25 @@ def _cache_put(key, value):
 def translate(text, lang):
     """Return (translated_text or None, note). Never fabricates a translation."""
     if TRANSLATOR == "none":
-        return None, "Translation is not configured on the server, so the English caption is shown. See README (CAPTION_TRANSLATOR)."
+        return None, "Translation is turned off on the server (CAPTION_TRANSLATOR=none), so the English caption is shown."
     try:
         if TRANSLATOR == "nllb":
             if lang not in NLLB_CODES:
                 return None, "This language is not supported by the translation model; showing English."
-            if not _nllb:
-                from transformers import AutoModelForSeq2SeqLM, AutoTokenizer
-                _nllb["tok"] = AutoTokenizer.from_pretrained(NLLB_ID, src_lang="eng_Latn")
-                _nllb["mdl"] = AutoModelForSeq2SeqLM.from_pretrained(NLLB_ID).eval()
-            tok, mdl = _nllb["tok"], _nllb["mdl"]
-            inputs = tok(text, return_tensors="pt", truncation=True, max_length=256)
-            with torch.inference_mode():
-                out = mdl.generate(**inputs, forced_bos_token_id=tok.convert_tokens_to_ids(NLLB_CODES[lang]), max_new_tokens=256, num_beams=4)
-            return tok.batch_decode(out, skip_special_tokens=True)[0], "Translated from the English BLIP caption with NLLB."
+            with _nllb_lock:  # hold for load + tokenize + generate + decode
+                if "mdl" not in _nllb:
+                    from transformers import AutoModelForSeq2SeqLM, AutoTokenizer
+                    log.info("Loading translation model %s (first use downloads ~2.4 GB)...", NLLB_ID)
+                    tok = AutoTokenizer.from_pretrained(NLLB_ID, src_lang="eng_Latn")
+                    mdl = AutoModelForSeq2SeqLM.from_pretrained(NLLB_ID).eval()
+                    _nllb["tok"], _nllb["mdl"] = tok, mdl  # set only after BOTH loaded
+                    log.info("Translation model ready.")
+                tok, mdl = _nllb["tok"], _nllb["mdl"]
+                inputs = tok(text, return_tensors="pt", truncation=True, max_length=256)
+                with torch.inference_mode():
+                    out = mdl.generate(**inputs, forced_bos_token_id=tok.convert_tokens_to_ids(NLLB_CODES[lang]), max_new_tokens=256, num_beams=4)
+                result = tok.batch_decode(out, skip_special_tokens=True)[0]
+            return result, "Translated from the English BLIP caption with NLLB."
         if TRANSLATOR == "libretranslate" and LIBRETRANSLATE_URL:
             payload = {"q": text, "source": "en", "target": "zh" if lang == "zh" else lang, "format": "text"}
             if LIBRETRANSLATE_KEY:
@@ -124,8 +131,8 @@ def translate(text, lang):
                 return json.loads(resp.read())["translatedText"], "Translated from the English BLIP caption with LibreTranslate."
         return None, "Translator is misconfigured; showing the English caption."
     except Exception as exc:
-        log.error("Translation failed: %s", type(exc).__name__)
-        return None, "Translation failed, so the English caption is shown."
+        log.error("Translation failed: %s: %s", type(exc).__name__, exc)
+        return None, "Translation failed (first use needs internet to download the model, and 'sentencepiece' must be installed), so the English caption is shown."
 
 
 def clean_caption(text):
@@ -216,6 +223,9 @@ def caption():
                    length=length, note=note, steps=steps, model=MODEL_ID,
                    cached=cached, ms=round((time.perf_counter() - t0) * 1000))
 
+
+if TRANSLATOR == "nllb" and os.environ.get("CAPTION_PRELOAD_TRANSLATOR") == "1":
+    translate("hello", "hi")  # warm up so the first user request is fast
 
 if __name__ == "__main__":
     app.run(host="127.0.0.1", port=PORT, debug=False)
