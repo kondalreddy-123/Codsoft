@@ -1,0 +1,7 @@
+flask>=3.0
+flask-cors>=4.0
+transformers>=4.40
+torch>=2.2
+pillow>=10.0
+# Only needed if you enable CAPTION_TRANSLATOR=nllb (see README):
+sentencepiece>=0.2
